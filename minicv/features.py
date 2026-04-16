@@ -256,6 +256,22 @@ def hog(
     bin_idx = (ang / bin_width).astype(np.int32).clip(0, n_bins - 1)
 
     # Build cell histograms
+    # -----------------------------------------------------------------------
+    # WHY A LOOP IS USED HERE:
+    # Building per-cell orientation histograms requires scatter-adding gradient
+    # magnitudes into variable bin indices for each spatial cell.  The core
+    # operation is `np.add.at(cell_hist, bin_index_array, magnitude_array)` —
+    # an unbuffered scatter-accumulate.  There is no NumPy primitive that
+    # performs this for a grid of (n_cells_y × n_cells_x) independent
+    # histograms simultaneously without either:
+    #   (a) building an (n_cells_y, n_cells_x, cell_size², n_bins) boolean
+    #       one-hot array (memory explodes on large images), or
+    #   (b) looping over cells and calling np.add.at per cell.
+    # Option (b) is chosen here: the loop iterates over cells (not pixels),
+    # so its count is (H // cell_size) × (W // cell_size) — typically
+    # 32×32 = 1024 iterations for a 256×256 image with cell_size=8.
+    # All pixel-level work inside each iteration is NumPy-vectorised.
+    # -----------------------------------------------------------------------
     cell_hists = np.zeros((n_cells_y, n_cells_x, n_bins), dtype=np.float32)
     for cy in range(n_cells_y):
         for cx in range(n_cells_x):
