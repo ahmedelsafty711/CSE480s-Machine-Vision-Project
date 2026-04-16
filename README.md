@@ -145,8 +145,10 @@ Every public function has a full docstring covering:
 | File | Contents |
 |------|----------|
 | `docs/MATH_AND_ALGORITHMS.md` | Equations and pseudocode for every algorithm |
+| `docs/RESULTS.md` | Verified outputs, numerical checks, Pandas demo for all APIs |
 | `milestone1/tests/test_minicv.py` | 42 unit tests covering all public APIs |
 | `milestone1/demo.py` | Live demo with visual output |
+| `milestone1/demo_output.png` | Pre-generated visual grid (all results at a glance) |
 
 ---
 
