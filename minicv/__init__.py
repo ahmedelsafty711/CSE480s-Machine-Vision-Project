@@ -31,6 +31,7 @@ from .filtering import (
 )
 from .processing import (
     bit_plane_slice, histogram, histogram_equalization,
+    histogram_dataframe,
     unsharp_mask, morphological_op,
 )
 from .transforms import resize, rotate, translate
@@ -53,6 +54,7 @@ __all__ = [
     "sobel_gradients",
     # processing
     "bit_plane_slice", "histogram", "histogram_equalization",
+    "histogram_dataframe",
     "unsharp_mask", "morphological_op",
     # transforms
     "resize", "rotate", "translate",
