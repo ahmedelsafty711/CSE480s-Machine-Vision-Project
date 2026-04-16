@@ -31,7 +31,15 @@ $$\hat{x} = \frac{\text{clip}(x, x_{\text{lo}}, x_{\text{hi}}) - x_{\text{lo}}}{
 
 ---
 
-### 3.3 – Padding Modes
+### 3.2 – Pixel Clipping
+
+Pixel clipping is an element-wise saturation operation:
+
+$$\hat{p}(i,j) = \min\!\bigl(\max\!\bigl(p(i,j),\; p_{\min}\bigr),\; p_{\max}\bigr)$$
+
+Any value below $p_{\min}$ is raised to $p_{\min}$; any value above $p_{\max}$ is lowered to $p_{\max}$.  Values already inside the range are unchanged.  Implemented in one NumPy call: `np.clip(image, low, high)`.
+
+---
 
 | Mode       | Border behavior                                   | NumPy equivalent |
 |------------|---------------------------------------------------|-----------------|
@@ -206,6 +214,85 @@ Log-scaled for compactness: $\phi_i = \text{sign}(h_i) \cdot \log_{10}|h_i|$
 6. Concatenate all normalised blocks → feature vector
 ```
 
+Output vector length:
+
+$$L = (n_{cy} - B + 1) \cdot (n_{cx} - B + 1) \cdot B^2 \cdot n_{\text{bins}}$$
+
+where $n_{cy} = \lfloor H / c \rfloor$, $n_{cx} = \lfloor W / c \rfloor$, $B$ = `block_size`, $c$ = `cell_size`.
+
 ---
+
+### 6.1a – Colour Histogram
+
+For each channel $k \in \{R, G, B\}$, divide the intensity range $[0, 255]$ into $b$ equal bins of width $w = 256 / b$:
+
+$$\text{hist}_k[i] = \bigl|\{(x,y) \;:\; i \cdot w \leq I_k(x,y) < (i+1) \cdot w\}\bigr|$$
+
+The final descriptor is the concatenation of all three channel histograms, optionally normalised by dividing by the total pixel count:
+
+$$\mathbf{f} = \bigl[\text{hist}_R \;\|\; \text{hist}_G \;\|\; \text{hist}_B\bigr] \in \mathbb{R}^{3b}$$
+
+For grayscale input only one histogram is computed, yielding $\mathbf{f} \in \mathbb{R}^b$.
+
+---
+
+### 6.2b – Gradient Magnitude Histogram
+
+A global histogram of Sobel gradient magnitudes over the full image:
+
+$$M(i,j) = \sqrt{G_x(i,j)^2 + G_y(i,j)^2}$$
+
+$$\text{hist}[k] = \bigl|\bigl\{(i,j) \;:\; k \cdot \Delta \leq M(i,j) < (k+1) \cdot \Delta\bigr\}\bigr|$$
+
+where $\Delta = M_{\max} / b$ and $b$ = number of bins.  Normalised to sum to 1.  This descriptor captures the global edge-energy distribution and is robust to translation and small rotations.
+
+---
+
+### 5.3 – Translation (Backward Mapping)
+
+For an output pixel at position $(i, j)$, the corresponding source coordinate is obtained by inverting the shift:
+
+$$\text{src}_y = i - t_y, \quad \text{src}_x = j - t_x$$
+
+If $(src_y, src_x)$ falls outside the image boundary $[0, H-1] \times [0, W-1]$, the output pixel is assigned the fill value (default 0).  Only positions inside the boundary are sampled (bilinear by default).
+
+$$\text{out}[i,j] = \begin{cases} I[i - t_y,\; j - t_x] & \text{if } 0 \leq i-t_y \leq H-1 \text{ and } 0 \leq j-t_x \leq W-1 \\ v_{\text{fill}} & \text{otherwise} \end{cases}$$
+
+---
+
+### Section 7 – Drawing Primitives
+
+#### Bresenham's Line Algorithm
+
+Rasterises a straight line between integer endpoints $(x_0, y_0)$ and $(x_1, y_1)$ using only integer arithmetic.  Let $dx = |x_1 - x_0|$, $dy = |y_1 - y_0|$, $s_x = \text{sign}(x_1 - x_0)$, $s_y = \text{sign}(y_1 - y_0)$:
+
+```
+err = dx - dy
+loop:
+    plot(x, y)
+    if x == x1 and y == y1: break
+    e2 = 2 * err
+    if e2 > -dy: err -= dy;  x += sx
+    if e2 <  dx: err += dx;  y += sy
+```
+
+The error term `err` tracks the accumulated fractional deviation from the ideal line; when it exceeds the half-step threshold the algorithm steps in the minor axis direction.  Time complexity: $O(\max(|dx|, |dy|))$.
+
+#### Filled Polygon – Scanline Rasterisation
+
+For each horizontal scanline $y$ between $y_{\min}$ and $y_{\max}$:
+
+1. Find all edge intersections with row $y$:
+
+$$x_{\text{int}} = x_a + \frac{(y - y_a)(x_b - x_a)}{y_b - y_a} \quad \text{for each edge } (a,b) \text{ where } y_a \neq y_b$$
+
+2. Sort intersection x-coordinates.
+3. Fill between each consecutive pair: $[x_{\text{int}}_{2k},\; x_{\text{int}}_{2k+1}]$.
+
+#### Circle / Point
+
+A filled circle of radius $r$ centred at $(x_c, y_c)$ is rasterised by testing every pixel $(x_c + dx, y_c + dy)$ for $dx, dy \in [-(r-1), r-1]$:
+
+$$\text{fill if} \quad dx^2 + dy^2 < r^2$$
 
 ---
