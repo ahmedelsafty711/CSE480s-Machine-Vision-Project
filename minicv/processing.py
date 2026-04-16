@@ -15,6 +15,7 @@ morphological_op(image, kernel, op)  -> np.ndarray                  [Additional 
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 
 from .utils import _check_gray, _check_image_2d_or_3d, _check_ndarray
 from .filtering import gaussian_filter
@@ -314,3 +315,69 @@ def morphological_op(
         return flat.min(axis=2).astype(np.float32)
     else:
         return flat.max(axis=2).astype(np.float32)
+
+
+# ---------------------------------------------------------------------------
+# Pandas utility – histogram as DataFrame
+# ---------------------------------------------------------------------------
+
+def histogram_dataframe(
+    image: np.ndarray,
+    bins: int = 256,
+) -> "pd.DataFrame":
+    """
+    Compute the intensity histogram of a grayscale image and return it as a
+    Pandas DataFrame for easy inspection, export, or downstream analysis.
+
+    Each row represents one histogram bin and contains the bin centre
+    intensity, the raw pixel count, the probability (normalised count), and
+    the cumulative distribution function (CDF).
+
+    Parameters
+    ----------
+    image : np.ndarray
+        2-D grayscale image (range [0, 255] or [0, 1]).
+    bins : int, optional
+        Number of histogram bins.  Default 256.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns:
+        - ``'intensity'``   : float32 – bin centre value in [0, 255].
+        - ``'count'``       : int64   – number of pixels in this bin.
+        - ``'probability'`` : float64 – count / total_pixels.
+        - ``'cdf'``         : float64 – cumulative probability up to this bin.
+
+    Raises
+    ------
+    TypeError  : If *image* is not a NumPy array or *bins* is not an int.
+    ValueError : If *image* is not 2-D or *bins* < 1.
+
+    Notes
+    -----
+    Pandas is used here because the tabular, labelled structure of a DataFrame
+    makes histogram data far easier to inspect (df.describe(), df.to_csv()),
+    filter (df[df['cdf'] > 0.5]), and plot (df.plot.bar()) than raw NumPy
+    arrays.  This function is the primary use of Pandas in minicv.
+
+    Examples
+    --------
+    >>> df = histogram_dataframe(gray_image)
+    >>> print(df.head())
+    >>> df.to_csv("histogram.csv", index=False)
+    >>> median_intensity = df[df['cdf'] >= 0.5].iloc[0]['intensity']
+    """
+    counts, edges = histogram(image, bins=bins, range_=(0, 256))
+
+    bin_centres = ((edges[:-1] + edges[1:]) / 2.0).astype(np.float32)
+    total = counts.sum()
+    prob  = counts / float(total) if total > 0 else np.zeros(bins)
+    cdf   = np.cumsum(prob)
+
+    return pd.DataFrame({
+        "intensity":   bin_centres,
+        "count":       counts,
+        "probability": prob,
+        "cdf":         cdf,
+    })
