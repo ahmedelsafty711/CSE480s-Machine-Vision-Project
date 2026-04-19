@@ -39,35 +39,19 @@ def check(name, condition):
 # ─────────────────────────────────────────────────────────────────────────────
 # BUILD A SYNTHETIC "NATURAL-LOOKING" TEST IMAGE
 # ─────────────────────────────────────────────────────────────────────────────
+img_rgb = cv.read_image(r"D:\ASU\spring 26\vision\project\download (4).jpg")   # or .jpg
+H, W = img_rgb.shape[:2]
+
+img_gray_f = cv.rgb_to_gray(img_rgb)
+img_gray   = (img_gray_f * 255).astype(np.float32)
+
+# recreate the salt-and-pepper version from your image
 rng = np.random.default_rng(42)
-
-H, W = 256, 256
-# Base gradient
-img_rgb = np.zeros((H, W, 3), dtype=np.uint8)
-for c, (lo, hi) in enumerate([(60,200), (80,160), (40,180)]):
-    channel = np.linspace(lo, hi, W, dtype=np.float32)
-    img_rgb[:, :, c] = np.broadcast_to(channel, (H, W)).astype(np.uint8)
-
-# Add some shapes
-img_rgb[60:100, 60:100]  = [220, 80,  80]   # red square
-img_rgb[60:100, 160:200] = [80,  200, 80]   # green square
-img_rgb[160:200,60:100]  = [80,  80,  220]  # blue square
-
-# Add Gaussian noise
-noise = rng.integers(-20, 20, img_rgb.shape)
-img_rgb = np.clip(img_rgb.astype(np.int16) + noise, 0, 255).astype(np.uint8)
-
-# Add salt-and-pepper noise (for median filter demo)
 img_sp = img_rgb.copy()
 sp_mask = rng.random((H, W)) < 0.05
 img_sp[sp_mask] = 255
 sp_mask2 = rng.random((H, W)) < 0.05
 img_sp[sp_mask2] = 0
-
-img_gray_f = cv.rgb_to_gray(img_rgb)          # float32 [0,1]
-img_gray   = (img_gray_f * 255).astype(np.float32)   # [0,255]
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 print(f"\n{BOLD}{'='*60}{RESET}")
 print(f"{BOLD}  minicv Milestone 1 — Feature Demo{RESET}")
