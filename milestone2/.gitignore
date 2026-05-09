@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+dataset/images/
+runs/
+*.pt
+*.npz
+*.png
+*.csv
+!milestone2/tests/
