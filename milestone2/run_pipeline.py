@@ -80,17 +80,26 @@ def banner(msg):
 # ══════════════════════════════════════════════════════════════════════════
 banner("STEP 1: Dataset")
 
-if not os.path.exists(ANN_FILE):
-    print("Generating dataset …")
+# Auto-detect dataset: Intel (real) takes priority over synthetic
+INTEL_ANN = os.path.join(DATASET_DIR, "annotations.csv")
+intel_ready = (
+    os.path.exists(INTEL_ANN) and
+    os.path.isdir(os.path.join(DATASET_DIR, "intel_raw"))
+)
+
+if intel_ready:
+    print("  Intel Image Classification dataset detected.")
+elif not os.path.exists(ANN_FILE):
+    print("  No dataset found — generating synthetic dataset …")
     generate()
 else:
-    print(f"Dataset found at {ANN_FILE}")
+    print(f"  Synthetic dataset found at {ANN_FILE}")
 
-# Load all splits
+# Load all splits (verbose=True shows progress for large datasets)
 print("Loading splits …")
-X_train_raw, y_train, classes = load_split("train", ANN_FILE, img_size=IMG_SIZE)
-X_val_raw,   y_val,   _       = load_split("val",   ANN_FILE, img_size=IMG_SIZE)
-X_test_raw,  y_test,  _       = load_split("test",  ANN_FILE, img_size=IMG_SIZE)
+X_train_raw, y_train, classes = load_split("train", ANN_FILE, img_size=IMG_SIZE, verbose=True)
+X_val_raw,   y_val,   _       = load_split("val",   ANN_FILE, img_size=IMG_SIZE, verbose=True)
+X_test_raw,  y_test,  _       = load_split("test",  ANN_FILE, img_size=IMG_SIZE, verbose=True)
 n_classes = len(classes)
 
 print(f"  Train: {len(y_train)}  Val: {len(y_val)}  Test: {len(y_test)}")
@@ -278,8 +287,8 @@ cnn_config = dict(
 with TrainingLogger(cnn_run, cnn_config) as logger:
     history_cnn = cnn_model.fit(
         X_tr_cnn, y_train, X_va_cnn, y_val,
-        optimizer=Adam(lr=5e-4), batch_size=32, epochs=40,
-        weight_decay=1e-4, patience=10, verbose=True,
+        optimizer=Adam(lr=1e-3), batch_size=32, epochs=80,
+        weight_decay=1e-4, patience=20, verbose=True,
     )
     for ep_i, (tl, vl, ta, va, lr) in enumerate(zip(
         history_cnn["train_loss"], history_cnn["val_loss"],
@@ -312,8 +321,7 @@ X_tr_paper = preprocess(X_train_raw_255, size=CNN_SIZE, mode="zscore")
 X_va_paper = preprocess(X_val_raw,       size=CNN_SIZE, mode="zscore")
 X_te_paper = preprocess(X_test_raw,      size=CNN_SIZE, mode="zscore")
 
-paper_model = PaperModel(n_classes=n_classes, lr=5e-4, epochs=40,
-                          batch_size=32, patience=10)
+paper_model = PaperModel(n_classes=n_classes, lr=5e-4)
 paper_run   = os.path.join(RUNS_DIR, "paper_model")
 os.makedirs(paper_run, exist_ok=True)
 
@@ -324,7 +332,8 @@ paper_config = dict(
 )
 
 history_paper = paper_model.fit(
-    X_tr_paper, y_train, X_va_paper, y_val, verbose=True,
+    X_tr_paper, y_train, X_va_paper, y_val,
+    epochs=40, batch_size=32, patience=10, verbose=True,
 )
 
 # Write logs manually
