@@ -5,11 +5,11 @@ Convolutional Neural Network implemented entirely from scratch in NumPy.
 
 Architecture (input: (N, 3, 32, 32))
 --------------------------------------
-  Conv(3→16, 3×3, pad=1) → ReLU → MaxPool(2×2)  → (N, 16, 16, 16)
-  Conv(16→32,3×3, pad=1) → ReLU → MaxPool(2×2)  → (N, 32,  8,  8)
-  Flatten                                          → (N, 2048)
-  FC(2048→128)           → ReLU
-  FC(128→n_classes)      → SoftmaxCELoss
+  Conv(3→32, 3×3, pad=1) → ReLU → MaxPool(2×2)  → (N, 32, 16, 16)
+  Conv(32→64, 3×3, pad=1) → ReLU → MaxPool(2×2) → (N, 64,  8,  8)
+  Flatten                                          → (N, 4096)
+  FC(4096→256)           → ReLU
+  FC(256→n_classes)      → SoftmaxCELoss
 
 Forward/backward implementation
 ---------------------------------
@@ -242,7 +242,7 @@ class MaxPool2D:
         for i in range(H_out):
             for j in range(W_out):
                 window = X[:, :, i*p:(i+1)*p, j*p:(j+1)*p]   # (N, C, p, p)
-                flat   = window.reshape(N, C, -1)               # (N, C, p²)
+                flat   = window.reshape(N, C, -1)           # (N, C, p²)
                 out[:, :, i, j]    = flat.max(axis=2)
                 argmax[:, :, i, j] = flat.argmax(axis=2)
 
@@ -373,16 +373,16 @@ class CNN:
 
     def __init__(self, n_classes: int = 6):
         self.layers = [
-            ConvLayer(3,  16, ksize=3, pad=1),   # (N, 16, 32, 32)
+            ConvLayer(3,  32, ksize=3, pad=1),   # (N, 32, 32, 32)
             ReLULayer(),
-            MaxPool2D(2),                          # (N, 16, 16, 16)
-            ConvLayer(16, 32, ksize=3, pad=1),   # (N, 32, 16, 16)
+            MaxPool2D(2),                        # (N, 32, 16, 16)
+            ConvLayer(32, 64, ksize=3, pad=1),   # (N, 64, 16, 16)
             ReLULayer(),
-            MaxPool2D(2),                          # (N, 32,  8,  8)
-            FlattenLayer(),                        # (N, 2048)
-            FCLayer(2048, 128),
+            MaxPool2D(2),                        # (N, 64,  8,  8)
+            FlattenLayer(),                      # (N, 4096)
+            FCLayer(4096, 256),
             ReLULayer(),
-            FCLayer(128, n_classes),
+            FCLayer(256, n_classes),
         ]
         self.loss_fn   = SoftmaxCELoss()
         self.n_classes = n_classes
@@ -434,9 +434,9 @@ class CNN:
         optimizer        = None,
         batch_size: int  = 32,
         epochs:     int  = 30,
-        weight_decay: float = 1e-4,
+        weight_decay: float = 5e-5,
         patience:    int  = 10,
-        max_grad_norm: float = 5.0,
+        max_grad_norm: float = 10.0,
         verbose: bool    = True,
     ) -> dict:
         """
@@ -446,7 +446,7 @@ class CNN:
         X_train : (N, 3, 32, 32) float32
         """
         if optimizer is None:
-            optimizer = Adam(lr=5e-4, weight_decay=weight_decay)
+            optimizer = Adam(lr=1e-4, weight_decay=weight_decay)
 
         early_stop = EarlyStopping(patience=patience)
         clipper    = GradientClipper(max_grad_norm)
